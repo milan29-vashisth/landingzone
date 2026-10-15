@@ -3,38 +3,69 @@ trigger:
 - main
 
 pool:
-  name: 'Azure-Linux-Agents'
+  vmImage: ubuntu-latest
 
 variables:
   terraformVersion: '1.9.5'
   serviceConnection: 'sc-hub-spoke-terraform'
+  subscriptionId: '6349a94a-bcc7-4da7-8f36-2f6bc3017bf7'
 
 steps:
+- checkout: self
+
 - task: TerraformInstaller@1
   displayName: Install Terraform
   inputs:
     terraformVersion: $(terraformVersion)
 
-- script: |
-    terraform init \
-      -backend-config="resource_group_name=tfstate-rg-milan" \
-      -backend-config="storage_account_name=milanhsstate2026" \
-      -backend-config="container_name=tfstate" \
-      -backend-config="key=hub-spoke-dev.tfstate" \
-      -backend-config="use_azuread_auth=true"
+- task: TerraformTaskV4@4
   displayName: Terraform Init
+  inputs:
+    provider: azurerm
+    command: init
+    backendServiceArm: $(serviceConnection)
+    backendAzureRmResourceGroupName: tfstate-rg-milan
+    backendAzureRmStorageAccountName: milanhsstate2026
+    backendAzureRmContainerName: tfstate
+    backendAzureRmKey: hub-spoke-dev.tfstate
+    backendAzureRmUseEntraIdForAuthentication: true
+    workingDirectory: $(System.DefaultWorkingDirectory)
 
-- script: terraform fmt -check -recursive
-  displayName: Terraform Format Check
+- task: TerraformTaskV4@4
+  displayName: Terraform Format
+  inputs:
+    provider: azurerm
+    command: custom
+    customCommand: fmt
+    commandOptions: '-check -recursive'
+    workingDirectory: $(System.DefaultWorkingDirectory)
 
-- script: terraform validate
+- task: TerraformTaskV4@4
   displayName: Terraform Validate
+  inputs:
+    provider: azurerm
+    command: validate
+    workingDirectory: $(System.DefaultWorkingDirectory)
 
-- script: |
-    terraform plan \
-      -var-file="environments/dev/terraform.tfvars" \
-      -out=tfplan
+- task: TerraformTaskV4@4
+  name: TerraformPlan
   displayName: Terraform Plan
+  inputs:
+    provider: azurerm
+    command: plan
+    environmentServiceNameAzureRM: $(serviceConnection)
+    commandOptions: >
+      -input=false
+      -out=tfplan
+      -var="subscription_id=$(subscriptionId)"
+    workingDirectory: $(System.DefaultWorkingDirectory)
 
-- script: terraform apply -auto-approve tfplan
+- task: TerraformTaskV4@4
   displayName: Terraform Apply
+  condition: and(succeeded(), eq(variables['TerraformPlan.changesPresent'], 'true'))
+  inputs:
+    provider: azurerm
+    command: apply
+    environmentServiceNameAzureRM: $(serviceConnection)
+    commandOptions: ' -input=false -auto-approve tfplan'
+    workingDirectory: $(System.DefaultWorkingDirectory)
