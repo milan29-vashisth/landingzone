@@ -1,0 +1,44 @@
+
+trigger:
+  - main
+
+pool:
+  name: Default
+  demands:
+    - Agent.Name -equals linux-terraform-agent-landing
+
+variables:
+  terraformVersion: '1.9.5'
+  azureSubscriptionId: '6349a94a-bcc7-4da7-8f36-2f6bc3017bf7'
+  azureTenantId: 'eb4d1fa9-0f45-4ca3-b14d-b16ed04ef95c'
+
+steps:
+  - checkout: self
+
+  - task: TerraformInstaller@1
+    displayName: Install Terraform
+    inputs:
+      terraformVersion: '$(terraformVersion)'
+
+  - bash: |
+      set -euo pipefail
+
+      cd "$(Build.SourcesDirectory)"
+
+      terraform init -input=false -reconfigure
+      terraform fmt -check -recursive
+      terraform validate
+
+      terraform plan \
+        -input=false \
+        -var="subscription_id=$(azureSubscriptionId)" \
+        -out=tfplan
+
+      terraform apply -input=false -auto-approve tfplan
+    displayName: Terraform Init, Validate, Plan and Apply
+    env:
+      ARM_USE_MSI: 'true'
+      ARM_USE_AZUREAD: 'true'
+      ARM_SUBSCRIPTION_ID: '$(azureSubscriptionId)'
+      ARM_TENANT_ID: '$(azureTenantId)'
+      TF_IN_AUTOMATION: 'true'
