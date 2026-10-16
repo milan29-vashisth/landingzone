@@ -3,12 +3,9 @@ trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
-
-variables:
-  terraformVersion: '1.9.5'
-  serviceConnection: 'sc-hub-spoke-terraform'
-  subscriptionId: '6349a94a-bcc7-4da7-8f36-2f6bc3017bf7'
+  name: Default
+  demands:
+  - Agent.Name -equals linux-terraform-agent-landing
 
 steps:
 - checkout: self
@@ -16,56 +13,17 @@ steps:
 - task: TerraformInstaller@1
   displayName: Install Terraform
   inputs:
-    terraformVersion: $(terraformVersion)
+    terraformVersion: '1.9.5'
 
-- task: TerraformTaskV4@4
-  displayName: Terraform Init
-  inputs:
-    provider: azurerm
-    command: init
-    backendServiceArm: $(serviceConnection)
-    backendAzureRmResourceGroupName: tfstate-rg-milan
-    backendAzureRmStorageAccountName: milanhsstate2026
-    backendAzureRmContainerName: tfstate
-    backendAzureRmKey: hub-spoke-dev.tfstate
-    backendAzureRmUseEntraIdForAuthentication: true
-    workingDirectory: $(System.DefaultWorkingDirectory)
-
-- task: TerraformTaskV4@4
-  displayName: Terraform Format
-  inputs:
-    provider: azurerm
-    command: custom
-    customCommand: fmt
-    commandOptions: '-check -recursive'
-    workingDirectory: $(System.DefaultWorkingDirectory)
-
-- task: TerraformTaskV4@4
-  displayName: Terraform Validate
-  inputs:
-    provider: azurerm
-    command: validate
-    workingDirectory: $(System.DefaultWorkingDirectory)
-
-- task: TerraformTaskV4@4
-  name: TerraformPlan
-  displayName: Terraform Plan
-  inputs:
-    provider: azurerm
-    command: plan
-    environmentServiceNameAzureRM: $(serviceConnection)
-    commandOptions: >
-      -input=false
-      -out=tfplan
-      -var="subscription_id=$(subscriptionId)"
-    workingDirectory: $(System.DefaultWorkingDirectory)
-
-- task: TerraformTaskV4@4
-  displayName: Terraform Apply
-  condition: and(succeeded(), eq(variables['TerraformPlan.changesPresent'], 'true'))
-  inputs:
-    provider: azurerm
-    command: apply
-    environmentServiceNameAzureRM: $(serviceConnection)
-    commandOptions: ' -input=false -auto-approve tfplan'
-    workingDirectory: $(System.DefaultWorkingDirectory)
+- bash: |
+    terraform init -input=false -reconfigure
+    terraform validate
+    terraform plan -input=false -out=tfplan
+    terraform apply -input=false -auto-approve tfplan
+  displayName: Terraform Init, Plan and Apply
+  env:
+    ARM_USE_MSI: 'true'
+    ARM_USE_AZUREAD: 'true'
+    ARM_SUBSCRIPTION_ID: '6349a94a-bcc7-4da7-8f36-2f6bc3017bf7'
+    ARM_TENANT_ID: 'eb4d1fa9-0f45-4ca3-b14d-b16ed04ef95c'
+    TF_IN_AUTOMATION: 'true'
