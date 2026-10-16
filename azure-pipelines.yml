@@ -16,31 +16,26 @@ steps:
   - checkout: self
 
   - task: TerraformInstaller@1
-    displayName: 'Install Terraform'
+    displayName: Install Terraform
     inputs:
       terraformVersion: '$(terraformVersion)'
 
   - bash: |
       set -euo pipefail
 
-      echo "Terraform version:"
-      terraform version
+      cd "$(Build.SourcesDirectory)"
 
-      echo "Initializing Terraform..."
       terraform init -input=false -reconfigure
-
-      echo "Validating configuration..."
+      terraform fmt -check -recursive
       terraform validate
 
-      echo "Creating Terraform plan..."
       terraform plan \
         -input=false \
         -var="subscription_id=$(azureSubscriptionId)" \
         -out=tfplan
 
-      echo "Applying Terraform plan..."
       terraform apply -input=false -auto-approve tfplan
-    displayName: 'Terraform Init, Validate, Plan and Apply'
+    displayName: Terraform Init, Validate, Plan and Apply
     env:
       ARM_USE_MSI: 'true'
       ARM_USE_AZUREAD: 'true'
