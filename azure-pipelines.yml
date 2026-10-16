@@ -22,7 +22,6 @@ steps:
 
   - bash: |
       set -euo pipefail
-
       cd "$(Build.SourcesDirectory)"
 
       terraform init -input=false -reconfigure
