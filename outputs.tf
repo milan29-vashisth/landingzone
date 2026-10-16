@@ -1,15 +1,24 @@
 
-output "resource_group_id" {
-  description = "ID of the created Resource Group"
-  value       = module.network_rg.id
-}
-
 output "resource_group_name" {
-  description = "Name of the created Resource Group"
-  value       = module.network_rg.name
+  value = azurerm_resource_group.network.name
 }
 
-output "resource_group_location" {
-  description = "Location of the created Resource Group"
-  value       = module.network_rg.location
+output "hub_vnet_id" {
+  value = module.hub.id
+}
+
+output "dev_vnet_id" {
+  value = module.spoke_dev.id
+}
+
+output "uat_vnet_id" {
+  value = module.spoke_uat.id
+}
+
+output "prod_vnet_id" {
+  value = module.spoke_prod.id
+}
+
+output "private_dns_zone_id" {
+  value = module.private_dns.zone_id
 }
